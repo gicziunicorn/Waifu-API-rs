@@ -7,58 +7,122 @@ use std::thread;
 use rand::{Rng, RngExt, rngs::ThreadRng};
 use wreq::{Client, Response, header};
 
-use crate::{fetcher::{FetchJob, FetchRequestType, FetchResponse, Fetcher}, types::{FetchError::{self, UnexpectedResponseError}, FetchResult}};
+use crate::{fetcher::Fetcher, types::{FetchError::InvalidDataError, FetchResult}};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Sites {
-    Rule34,
-    Nekos,
+
+
+
+#[async_trait]
+/// A trait for sites
+pub trait Site {
+    /// Checks if the site's API is available
+    async fn is_available(&self, fetcher: &Fetcher) -> FetchResult<bool>;
+
+    /// The response structure of the site
+    type ResponseType;
+
+    /// Get a random post from the site
+    async fn get_random_post(&self, fetcher: &Fetcher) -> FetchResult<Self::ResponseType>;
+
+    /// Get a random image from the site
+    async fn get_random_image(&self, fetcher: &Fetcher) -> FetchResult<Bytes>;
+
+    async fn get_random_image_from_post(&self, fetcher: &Fetcher, post: Self::ResponseType) -> FetchResult<Bytes>;
 }
 
-// implement Display to easily display the site name in the dropdown menu
-impl std::fmt::Display for Sites {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name())
-    }
-}
 
 
-pub struct SiteDetails {
+// ----- Nekos.moe -----
+
+/// struct for the 'Nekos.moe' website
+pub struct NekosMoe {
     pub name: &'static str,
-    pub icon_name: &'static str,
-    pub url_random: &'static str,
-    pub url_image: &'static str,
+    pub url_for_random: &'static str,
+    pub url_for_image: &'static str,
+    pub url_for_test: Option<&'static str>,
 }
 
-
-impl Sites {
-    pub fn details(&self) -> SiteDetails {
-        match self {
-            Sites::Rule34 => SiteDetails {
-                name: "Rule 34",
-                url_random: "https://rule34.xxx/index.php?page=post&s=random",
-                url_image: "",
-                icon_name: "rule34_favicon.ico",
-            },
-            Sites::Nekos => SiteDetails {
-                name: "Nekos.moe",
-                url_random: "https://nekos.moe/",
-                url_image: "",
-                icon_name: "nekos_favicon.ico",
-            },
+// create a 'new()' function for the site, so the user can initialize it's data
+impl NekosMoe {
+    /// Create a new instance of this site
+    pub fn new() -> Self {
+        NekosMoe {
+            name: "Nekos.moe",
+            url_for_random: "https://nekos.moe/api/v1/random/image",
+            url_for_image: "https://nekos.moe/image",
+            url_for_test: Some("https://nekos.moe/api/v1"),
         }
     }
+}
 
-    pub fn name(&self) -> &'static str {
-        self.details().name
+#[async_trait]
+impl Site for NekosMoe {
+    type ResponseType = NekosMoeResponse;
+
+    async fn is_available(&self, fetcher: &Fetcher) -> FetchResult<bool> {
+        let Some(url_for_test) = &self.url_for_test
+        else { return Err(InvalidDataError("The url_for_test is None!")); };
+
+        let response = fetcher.fetch_url(url_for_test).await?;
+
+        Ok(response.status().is_success())
     }
-    pub fn url(&self) -> &'static str {
-        self.details().url_image
+
+    async fn get_random_post(&self, fetcher: &Fetcher) -> FetchResult<Self::ResponseType> {
+        let url_for_random = self.url_for_random.to_string();
+
+        let res = fetcher.fetch_posts(&url_for_random).await?;
+
+        // Convert the site's response to the struct
+        let nekos_response = res.json::<NekosMoeResponse>().await?;
+
+        Ok(nekos_response)
     }
-    pub fn image_path(&self) -> &'static str {
-        self.details().icon_name
+
+    async fn get_random_image(&self, fetcher: &Fetcher) -> FetchResult<Bytes> {
+        // Get a list of random post (1 post here but still a list)
+        let post = self.get_random_post(fetcher).await?;
+
+        Ok(self.get_random_image_from_post(fetcher, post).await?)
+    }
+
+    async fn get_random_image_from_post(&self, fetcher: &Fetcher, post: Self::ResponseType) -> FetchResult<Bytes> {
+        // The website returns random posts already with each request, so there's no need to do it here
+        let image_id = &post.images[0].id;
+        let image_url = format!("{}/{}", self.url_for_image, image_id);
+
+        let image_bytes = fetcher.fetch_image(&image_url).await?;
+
+        Ok(image_bytes)
     }
 }
+
+
+// Deserialize allows the response to be parsed into this struct
+// (unneeded fields can be left out)
+#[derive(Deserialize)]
+/// The structure of a post for the site
+pub struct NekosPost {
+    pub id: String,
+    pub nsfw: bool,
+    pub artist: Option<String>,
+    pub tags: Vec<String>,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+    pub likes: u32,
+    pub favorites: u32,
+}
+
+#[derive(Deserialize)]
+/// The structure that the API of the site will return
+pub struct NekosMoeResponse {
+    images: Vec<NekosPost>
+}
+
+// ---------------------
+
+
+// ----- Nekos.moe -----
 
 // Give each site's response a struct so it can be parsed later
 // use deserialize so if the api returns fileUrl it'll be file_url
@@ -88,135 +152,3 @@ pub struct Rule34Post {
     pub comment_count: u32,
 }
 pub type Rule34Response = Vec<Rule34Post>;
-
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct NekosResponse {
-    pub images: Vec<NekosPost>,
-}
-
-
-pub enum Responses {
-    Rule34(Rule34Response),
-    Nekos(NekosResponse),
-}
-
-
-
-
-
-
-
-// -------------------------------------------------------------------------------------------------------------------
-
-
-
-
-pub struct RandomPost {
-    image_bytes: Vec<u8>,
-}
-
-
-/// A trait for sites
-#[async_trait]
-pub trait Site {
-    /// Checks if the site is available
-    async fn is_available(&self) -> bool;
-
-    /// Get a random image from the site;
-    /// T: site return structure
-    async fn get_random_image(&self, fetcher: &Fetcher) -> FetchResult<NekosMoeResponse>;
-}
-
-
-// create a struct for the site
-/// Nekos.moe
-pub struct NekosMoe {
-    pub name: &'static str,
-    pub url_random: &'static str,
-    pub url_image: &'static str,
-    pub test_url: Option<&'static str>,
-}
-
-// create a new function for the site, so the user can initialize it's data
-impl NekosMoe {
-    /// Create a new instance of this site
-    pub fn new() -> Self {
-        NekosMoe {
-            name: "Nekos.moe",
-            url_random: "https://nekos.moe/api/v1/random/image",
-            url_image: "https://nekos.moe/image",
-            test_url: None,
-        }
-    }
-}
-
-#[async_trait]
-impl Site for NekosMoe {
-    async fn is_available(&self) -> bool {
-        todo!()
-    }
-
-    /*async fn get_random_image(&self, fetcher: Fetcher) -> FetchResult<NekosMoeResponse> {
-        let url_random = self.url_random.to_string();
-
-        let (sender, receiver) = oneshot::channel();
-        let job = FetchJob {
-            fetch_type: FetchRequestType::Posts,
-            url: url_random,
-            sender,
-        };
-
-        if fetcher.job_sender.send(job).is_err() {
-            Err(FetchError::ThreadError("Network thread worker crashed or closed!"))?
-        }
-
-        let response = receiver.await?;
-
-        let posts = match response {
-            FetchResponse::Posts(result) => Ok(result),
-            _ => Err(UnexpectedResponseError),
-        }?;
-
-        return posts.into();
-
-        /*info!("Fetched posts from Nekos: \n{:#?}", posts);
-
-        // get the image
-        let url = posts[0].image_url.clone();
-        let bytes = fetcher.fetch_image_link(url).await?;
-        let image_vec = bytes.to_vec();
-
-        Ok(RandomPost {
-            image_bytes: image_vec,
-        })*/
-    }*/
-
-    async fn get_random_image(&self, fetcher: &Fetcher) -> FetchResult<NekosMoeResponse> {
-        let url_random = self.url_random.to_string();
-
-        let res = fetcher.fetch_posts(&url_random).await?;
-
-        let nekos_response = res.json::<NekosResponse>().await?;
-        let result = nekos_response.images.to_vec();
-
-        Ok(result)
-    }
-}
-
-
-#[derive(Debug, Clone, Deserialize)]
-/// The structure of a post for the site
-pub struct NekosPost {
-    pub id: String,
-    pub nsfw: bool,
-    pub artist: Option<String>,
-    pub tags: Vec<String>,
-    #[serde(rename = "createdAt")]
-    pub created_at: String,
-    pub likes: u32,
-    pub favorites: u32,
-}
-
-/// The structure that the API of the site will return
-type NekosMoeResponse = Vec<NekosPost>;

@@ -1,5 +1,6 @@
 use thiserror::Error;
 use tokio::{sync::oneshot::error::RecvError, time::error};
+use wreq::Response;
 
 
 
@@ -24,8 +25,8 @@ pub enum FetchError {
     #[error("Network thread receiver failed. The sender was dropped before sending.")]
     ReceiverError (#[source] RecvError),
 
-    #[error("An unexpected response was received.")]
-    UnexpectedResponseError
+    #[error("Invalid data: {0}")]
+    InvalidDataError(&'static str)
 }
 
 pub type FetchResult<T> = Result<T, FetchError>;
