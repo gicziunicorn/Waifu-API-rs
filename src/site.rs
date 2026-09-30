@@ -5,7 +5,7 @@ use log::{debug, info};
 use tokio::sync::{mpsc, oneshot};
 use std::thread;
 use rand::{Rng, RngExt, rngs::ThreadRng};
-use wreq::{Client, header};
+use wreq::{Client, Response, header};
 
 use crate::{fetcher::{FetchJob, FetchRequestType, FetchResponse, Fetcher}, types::{FetchError::{self, UnexpectedResponseError}, FetchResult}};
 
@@ -104,7 +104,12 @@ pub enum Responses {
 
 
 
-// ------------------------
+
+
+
+// -------------------------------------------------------------------------------------------------------------------
+
+
 
 
 pub struct RandomPost {
@@ -120,7 +125,7 @@ pub trait Site {
 
     /// Get a random image from the site;
     /// T: site return structure
-    async fn get_random_image<T>(&self, fetcher: Fetcher) -> FetchResult<T>;
+    async fn get_random_image(&self, fetcher: Fetcher) -> FetchResult<NekosMoeResponse>;
 }
 
 
@@ -152,7 +157,7 @@ impl Site for NekosMoe {
         todo!()
     }
 
-    async fn get_random_image<NekosMoeResponse>(&self, fetcher: Fetcher) -> FetchResult<NekosMoeResponse> {
+    async fn get_random_image(&self, fetcher: Fetcher) -> FetchResult<NekosMoeResponse> {
         let url_random = self.url_random.to_string();
 
         let (sender, receiver) = oneshot::channel();
@@ -166,15 +171,16 @@ impl Site for NekosMoe {
             Err(FetchError::ThreadError("Network thread worker crashed or closed!"))?
         }
 
-        let res: FetchResult<FetchResponse<NekosMoeResponse>> = receiver.await?;
+        let response = receiver.await?;
 
-        let posts = match res {
-            Ok(FetchResponse::Posts(result)) => result,
-            Ok(_) => Err(UnexpectedResponseError),
-            Err(e) => Err(e),
+        let posts = match response {
+            FetchResponse::Posts(result) => Ok(result),
+            _ => Err(UnexpectedResponseError),
         }?;
 
-        info!("Fetched posts from Nekos: \n{:#?}", posts);
+        return posts.into();
+
+        /*info!("Fetched posts from Nekos: \n{:#?}", posts);
 
         // get the image
         let url = posts[0].image_url.clone();
@@ -183,7 +189,7 @@ impl Site for NekosMoe {
 
         Ok(RandomPost {
             image_bytes: image_vec,
-        })
+        })*/
     }
 }
 

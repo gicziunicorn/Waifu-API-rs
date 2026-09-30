@@ -1,48 +1,30 @@
 use bytes::Bytes;
 use log::{debug, info};
 use tokio::sync::{mpsc, oneshot::{self, Sender}};
-use std::thread;
+use std::{any::Any, thread};
 use rand::{Rng, RngExt, rngs::ThreadRng};
-use wreq::{Client, header};
+use wreq::{Client, Response, header};
 use thiserror::Error;
 
 use crate::{site::{self, NekosResponse, Rule34Response, Sites}, types::{FetchError, FetchResult}};
 
 
 #[derive(Clone)]
-pub enum FetchRequestType<T>
-where T: Clone {
+pub enum FetchRequestType {
     Image,
-    Posts(T),
+    Posts,
 }
 
-// This is what the gui will send here
-pub struct FetchRequest {
-    pub url: &'static str,
-    pub tags: &'static str,
-    pub limit: &'static str,
-    pub api_key: &'static str,
-    pub user_id: &'static str,
-}
-
-
-pub struct FetchJob<T> {
+pub struct FetchJob {
     pub fetch_type: FetchRequestType,
     pub url: String,
-    pub sender: Sender<FetchResult<T>>,
+    pub sender: Sender<FetchResult<FetchResponse>>,
 }
 
-#[derive(Debug)]
-pub struct PostResponse {
-    pub image_url: String,
-}
-
-pub enum FetchResponse<T> {
+pub enum FetchResponse {
     Image(Bytes),
-    Posts(FetchResult<T>),
+    Posts(Response),
 }
-
-
 
 /// The object that stores and manages all fetching logic.
 #[derive(Clone)]
@@ -79,33 +61,15 @@ impl Fetcher {
                             });
                         }
 
-
-                        // let headers = response.headers();
-                        //debug!("Headers: {:#?}", headers);
-
                         // decide what to do with the response
                         match job.fetch_type {
+                            FetchRequestType::Posts => {
+                                Ok(FetchResponse::Posts(response))
+                            }
                             FetchRequestType::Image => {
                                 let bytes = response.bytes().await?;
                                 Ok(FetchResponse::Image(bytes))
                             }
-                            FetchRequestType::Posts(site) => {
-                                // get the needed parts of the response for each site
-                                /*match site {
-                                    Sites::Nekos => {
-                                        let nekos_response = response.json::<NekosResponse>().await?;
-                                        let result = nekos_response.images.into_iter()
-                                            .map( |nekos_post|
-                                                PostResponse {
-                                                    image_url: format!("https://nekos.moe/image/{}", nekos_post.id)
-                                                })
-                                            .collect::<Vec<_>>();
-                                        Ok(FetchResponse::Posts(Ok(result)))
-                                    }
-                                    _ => {}
-                                }
-                            }*/
-                            
                         }
                     }.await;
 
@@ -139,7 +103,7 @@ impl Fetcher {
         }
     }
 
-    async fn rule34_fetch(&self, data: FetchRequest) -> Result<Vec<PostResponse>, String> {
+    /*async fn rule34_fetch(&self, data: FetchRequest) -> Result<Vec<PostResponse>, String> {
         info!("fetching rule34");
         let (response_tx, response_rx) = oneshot::channel();
 
@@ -224,5 +188,5 @@ impl Fetcher {
             Sites::Rule34 => self.rule34_get_random(data).await,
             Sites::Nekos => self.nekos_get_random(data).await,
         }
-    }
+    }*/
 }
