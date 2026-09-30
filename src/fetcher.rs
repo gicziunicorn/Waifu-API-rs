@@ -26,6 +26,69 @@ pub enum FetchResponse {
     Posts(Response),
 }
 
+
+
+
+/*
+#[derive(Clone)]
+pub struct Fetcher {
+    client: Client,
+}
+
+impl Fetcher {
+    pub fn new(client: Client) -> Self {
+        Self { client }
+    }
+
+    pub async fn fetch_image(&self, url: &str) -> FetchResult<Bytes> {
+        let response = self.client.get(url).send().await?;
+        if !response.status().is_success() {
+            return Err(FetchError::HTTPError {
+                code: response.status().as_u16(),
+                message: "Site returned an error status.",
+                body: response.text().await.ok(),
+            });
+        }
+        Ok(response.bytes().await?)
+    }
+
+    pub async fn fetch_posts(&self, url: &str) -> FetchResult<Response> {
+        let response = self.client.get(url).send().await?;
+
+        if !response.status().is_success() {
+            return Err(FetchError::HTTPError {
+                code: response.status().as_u16(),
+                message: "Site returned an error status.",
+                body: response.text().await.ok(),
+            });
+        }
+        Ok(response)
+    }
+
+    /*async fn check_status(&self, response: &Response) -> FetchResult<()> {
+        if !response.status().is_success() {
+            return Err(FetchError::HTTPError {
+                code: response.status().as_u16(),
+                message: "Site returned an error status.",
+                body: response.text().await.ok(),
+            });
+        }
+        Ok(())
+    }*/
+}
+*/
+
+
+
+
+
+
+
+
+
+
+// /*
+
 /// The object that stores and manages all fetching logic.
 #[derive(Clone)]
 pub struct Fetcher {
@@ -190,3 +253,5 @@ impl Fetcher {
         }
     }*/
 }
+
+// */

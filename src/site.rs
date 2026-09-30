@@ -125,7 +125,7 @@ pub trait Site {
 
     /// Get a random image from the site;
     /// T: site return structure
-    async fn get_random_image(&self, fetcher: Fetcher) -> FetchResult<NekosMoeResponse>;
+    async fn get_random_image(&self, fetcher: &Fetcher) -> FetchResult<NekosMoeResponse>;
 }
 
 
@@ -157,7 +157,7 @@ impl Site for NekosMoe {
         todo!()
     }
 
-    async fn get_random_image(&self, fetcher: Fetcher) -> FetchResult<NekosMoeResponse> {
+    /*async fn get_random_image(&self, fetcher: Fetcher) -> FetchResult<NekosMoeResponse> {
         let url_random = self.url_random.to_string();
 
         let (sender, receiver) = oneshot::channel();
@@ -190,6 +190,17 @@ impl Site for NekosMoe {
         Ok(RandomPost {
             image_bytes: image_vec,
         })*/
+    }*/
+
+    async fn get_random_image(&self, fetcher: &Fetcher) -> FetchResult<NekosMoeResponse> {
+        let url_random = self.url_random.to_string();
+
+        let res = fetcher.fetch_posts(&url_random).await?;
+
+        let nekos_response = res.json::<NekosResponse>().await?;
+        let result = nekos_response.images.to_vec();
+
+        Ok(result)
     }
 }
 
