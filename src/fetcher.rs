@@ -4,9 +4,9 @@ use wreq::{Client, Response};
 use crate::types::{FetchError, FetchResult};
 
 
-/// The struct that stores and handles fetching logic
-#[derive(Clone)]
-pub struct Fetcher {
+/// Stores and handles fetching logic
+#[derive(Debug, Clone)]
+pub(super) struct Fetcher {
     client: Client,
 }
 

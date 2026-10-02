@@ -10,7 +10,7 @@ use wreq::Response;
 /// An error that can happen during fetching
 pub enum FetchError {
     #[error("Network error {0}")]
-    NetworkError (#[source] wreq::Error),
+    NetworkError(#[source] wreq::Error),
 
     #[error("HTTP error ({code}): {message}")]
     HTTPError {
@@ -20,13 +20,13 @@ pub enum FetchError {
     },
 
     #[error("Network thread error: {0}")]
-    ThreadError (&'static str),
+    ThreadError(&'static str),
 
     #[error("Network thread receiver failed. The sender was dropped before sending.")]
-    ReceiverError (#[source] RecvError),
+    ReceiverError(#[source] RecvError),
 
-    #[error("Invalid data: {0}")]
-    InvalidDataError(&'static str)
+    #[error("Failed to get random element.")]
+    RandomError
 }
 
 pub type FetchResult<T> = Result<T, FetchError>;
