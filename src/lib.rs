@@ -14,10 +14,16 @@ mod tests {
     use crate::{fetcher::Fetcher, site::{NekosMoe, Site}};
 
     #[tokio::test]
-    async fn it_works() {
+    async fn main_test() {
+        static APP_USER_AGENT: &str = "Waifu-API-rs (https://github.com/gicziunicorn/Waifu-API-rs)";
+
+        println!("{}", APP_USER_AGENT);
+
+        panic!("exit");
+
         let client = Client::builder()
             .local_addresses(Ipv4Addr::UNSPECIFIED, None)
-            .emulation(Emulation::Chrome137)
+            .user_agent(APP_USER_AGENT)
             .build()
             .expect("Client failed");
 
