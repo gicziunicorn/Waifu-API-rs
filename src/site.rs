@@ -203,8 +203,6 @@ impl NekosBest {
                 .ok_or(FetchError::RandomError)?
         };
 
-        println!("category: {}", rand_cat);
-
         let bytes = self.get_random_image_with_category(rand_cat).await?;
 
         Ok( (bytes, rand_cat) )
