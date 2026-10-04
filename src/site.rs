@@ -1,37 +1,11 @@
-use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use bytes::Bytes;
-use log::{debug, info};
-use tokio::sync::{mpsc, oneshot};
-use std::thread;
 use rand::{rng, seq::IteratorRandom};
-use wreq::{Client, Response, header};
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
 
-use crate::{fetcher::Fetcher, types::{FetchError, FetchResult}};
-
-
-/*#[async_trait]
-/// A trait for sites
-pub trait Site {
-    /// Checks if the site's API is available
-    async fn is_available(&self) -> FetchResult<bool>;
-
-    /// The response structure of the site when asking for a post
-    type ApiResponseType;
-
-    /// Get a random post from the site
-    async fn get_random_post(&self) -> FetchResult<Self::ApiResponseType>;
-
-    /// Get a random image from the site with an already requested post
-    async fn get_random_image_from_post(&self, post: Self::ApiResponseType) -> FetchResult<Bytes>;
-
-    /// Get a random image from the site
-    async fn get_random_image(&self) -> FetchResult<Bytes>;
-}
-*/
-
+use crate::{error::{FetchError::{self, RateLimitError, ResponseError}, FetchResult}, fetcher::Fetcher};
 
 
 // ----- Nekos.moe -----
@@ -138,6 +112,9 @@ pub struct NekosBest {
     pub category_url: &'static str,
     pub url_for_test: &'static str,
     fetcher: Fetcher,
+    pub ratelimit_remaining: u16,
+    /// In UTC
+    pub ratelimit_reset: Option<DateTime<Utc>>,
 }
 
 impl NekosBest {
@@ -148,10 +125,14 @@ impl NekosBest {
             category_url: "https://nekos.best/api/v2",
             url_for_test: "https://nekos.best/api/v2/neko",
             fetcher,
+            ratelimit_remaining: 200,
+            ratelimit_reset: None,
         }
     }
 
     /// Checks if the site's API is available
+    ///
+    /// This'll attempt to request a random post
     pub async fn is_available(&self) -> FetchResult<bool> {
         let fetcher = &self.fetcher;
 
@@ -161,20 +142,39 @@ impl NekosBest {
     }
 
     /// Get a number of random posts from a specific category (max 20)
-    pub async fn get_random_posts_with_category(&self, category: NekosBestImageCategories, count: u16) -> FetchResult<NekosBestResponse> {
+    pub async fn get_random_posts_with_category(&mut self, category: NekosbestImageCategories, count: u16) -> FetchResult<NekosbestResponse> {
+        if self.ratelimit_remaining == 0 { return Err(RateLimitError); }
+
         let fetcher = &self.fetcher;
 
-        let url = format!("{}/{}", self.category_url, category.to_string());
+        let url = format!("{}/{category}?amount={count}", self.category_url);
         let res = fetcher.fetch_posts(&url).await?;
 
+        let headers = res.headers();
+        let rl_rem = headers.get("x-rate-limit-remaining")
+            .ok_or(ResponseError("'x-rate-limit-remaining' field not found".to_string()))?
+            .to_str()
+            .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?
+            .parse::<u16>()
+            .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?;
+        let rl_rst = headers.get("x-rate-limit-reset")
+            .ok_or(ResponseError("'x-rate-limit-reset' field not found".to_string()))?
+            .to_str()
+            .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?
+            .parse::<DateTime<Utc>>()
+            .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?;
+
+        self.ratelimit_remaining = rl_rem;
+        self.ratelimit_reset = Some(rl_rst);
+
         // Convert the site's response to the struct
-        let mut nekos_response = res.json::<NekosBestResponse>().await?;
+        let nekos_response = res.json::<NekosbestResponse>().await?;
 
         Ok(nekos_response)
     }
 
     /// Get a random image from an already requested post
-    pub async fn get_random_image_from_post(&self, post: &NekosBestPost) -> FetchResult<Bytes> {
+    pub async fn get_random_image_from_post(&self, post: &NekosbestPost) -> FetchResult<Bytes> {
         let fetcher = &self.fetcher;
 
         let bytes = fetcher.fetch_image(&post.url).await?;
@@ -183,8 +183,8 @@ impl NekosBest {
     }
 
     /// Get a random image from a specific category
-    pub async fn get_random_image_with_category(&self, category: NekosBestImageCategories) -> FetchResult<Bytes> {
-        let mut posts = self.get_random_posts_with_category(category, 1).await?;
+    pub async fn get_random_image_with_category(&mut self, category: NekosbestImageCategories) -> FetchResult<Bytes> {
+        let posts = self.get_random_posts_with_category(category, 1).await?;
         let post = &posts.results[0];
 
         let image = self.get_random_image_from_post(post).await?;
@@ -195,11 +195,11 @@ impl NekosBest {
     /// Get a random image from a random category
     ///
     /// Also returns the chosen category
-    pub async fn get_random_image(&self) -> FetchResult<(Bytes, NekosBestImageCategories)> {
+    pub async fn get_random_image(&mut self) -> FetchResult<(Bytes, NekosbestImageCategories)> {
         // Create rng in an inner scope so it is dropped right after and won't be a problem for async
         let rand_cat = {
             let mut rng = rng();
-            NekosBestImageCategories::iter().choose(&mut rng)
+            NekosbestImageCategories::iter().choose(&mut rng)
                 .ok_or(FetchError::RandomError)?
         };
 
@@ -212,19 +212,19 @@ impl NekosBest {
 
 #[derive(Debug, Deserialize)]
 /// The structure of a post for Nekosbest
-pub struct NekosBestPost {
-    artist_name: String,
+pub struct NekosbestPost {
+    pub artist_name: String,
      #[serde(rename = "artist_href")]
-    artist_profile: String,
+    pub artist_profile: String,
      #[serde(rename = "source_url")]
-    source: String,
-    url: String,
+    pub source: String,
+    pub url: String,
 }
 
 #[derive(Debug, Deserialize)]
 /// The structure that the API of the site will return
-pub struct NekosBestResponse {
-    results: Vec<NekosBestPost>
+pub struct NekosbestResponse {
+    pub results: Vec<NekosbestPost>
 }
 
 
@@ -235,7 +235,7 @@ pub struct NekosBestResponse {
 #[derive(Debug, Display, EnumIter, Clone, Copy)]
 #[strum(serialize_all = "lowercase")]
 /// Nekosbest categories that return images
-pub enum NekosBestImageCategories {
+pub enum NekosbestImageCategories {
     Neko,
     Waifu,
     Husbando,
@@ -245,7 +245,7 @@ pub enum NekosBestImageCategories {
 #[derive(Debug, Display, EnumIter, Clone, Copy)]
 #[strum(serialize_all = "lowercase")]
 /// Nekosbest categories that return gifs
-pub enum NekosBestGifCategories {
+pub enum NekosbestGifCategories {
     Angry,
     Baka,
     Bite,

@@ -1,12 +1,12 @@
 use bytes::Bytes;
 use wreq::{Client, Response};
 
-use crate::types::{FetchError, FetchResult};
+use crate::error::{FetchError, FetchResult};
 
 
 /// Stores and handles fetching logic
 #[derive(Debug, Clone)]
-pub(super) struct Fetcher {
+pub struct Fetcher {
     client: Client,
 }
 

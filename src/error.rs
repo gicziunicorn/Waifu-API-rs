@@ -1,8 +1,5 @@
 use thiserror::Error;
-use tokio::{sync::oneshot::error::RecvError, time::error};
-use wreq::Response;
-
-
+use tokio::{sync::oneshot::error::RecvError};
 
 
 // Custom errors (using thiserror)
@@ -19,6 +16,9 @@ pub enum FetchError {
         body: Option<String>
     },
 
+    #[error("Invalid response: {0}")]
+    ResponseError(String),
+
     #[error("Network thread error: {0}")]
     ThreadError(&'static str),
 
@@ -26,7 +26,10 @@ pub enum FetchError {
     ReceiverError(#[source] RecvError),
 
     #[error("Failed to get random element.")]
-    RandomError
+    RandomError,
+
+    #[error("Rate-limit reached!")]
+    RateLimitError,
 }
 
 pub type FetchResult<T> = Result<T, FetchError>;

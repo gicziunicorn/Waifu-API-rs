@@ -1,18 +1,15 @@
-#![allow(unused)]
-mod types;
-mod fetcher;
-mod site;
+#![warn(unused)]
+pub mod error;
+pub mod fetcher;
+pub mod site;
 
 
 #[cfg(test)]
 mod tests {
     use std::pin::Pin;
-    use std::{future, net::Ipv4Addr, time::{Duration, Instant}};
-    use futures::future::join_all;
-    use image::{load_from_memory};
-    use tokio::{join, spawn};
+    use std::{net::Ipv4Addr, time::Instant};
+    use image::load_from_memory;
     use wreq::Client;
-    use wreq_util::Emulation;
     use crate::{fetcher::Fetcher, site::{NekosBest, NekosMoe}};
 
     // Create a user agent that can be sent to the API.
@@ -73,16 +70,18 @@ mod tests {
         let nekosmoe = NekosMoe::new(fetcher);
 
         // Get an image from the site
-        let image = nekosmoe.get_random_image().await.expect("Failed to get random");
+        let _image = nekosmoe.get_random_image().await.expect("Failed to get random");
 
         "Nekos.moe test done."
     }
 
     async fn test_nekosbest(fetcher: Fetcher) -> &'static str {
-        let site = NekosBest::new(fetcher);
+        let mut site = NekosBest::new(fetcher);
 
         // Get an image from the site
-        let (image, chosen_category) = site.get_random_image().await.expect("Failed to get random");
+        let (image, _chosen_category) = site.get_random_image().await.expect("Failed to get random");
+
+        println!("Remaining: {}, reset: {}", site.ratelimit_remaining, site.ratelimit_reset.unwrap());
 
         // Save the image
         load_from_memory(&image).expect("Failed to convert image")
