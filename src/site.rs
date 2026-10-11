@@ -20,6 +20,12 @@ pub struct NekosMoe {
     fetcher: Fetcher,
 }
 
+impl Into<String> for NekosMoe {
+    fn into(self) -> String {
+        self.name.to_string()
+    }
+}
+
 impl NekosMoe {
     /// Create a new instance of this site with its data
     pub fn new(fetcher: Fetcher) -> Self {
@@ -115,6 +121,12 @@ pub struct NekosBest {
     pub ratelimit_remaining: u16,
     /// In UTC
     pub ratelimit_reset: Option<DateTime<Utc>>,
+}
+
+impl Into<String> for NekosBest {
+    fn into(self) -> String {
+        self.name.to_string()
+    }
 }
 
 impl NekosBest {

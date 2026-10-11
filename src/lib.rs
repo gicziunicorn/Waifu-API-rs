@@ -16,7 +16,6 @@ mod tests {
     // Most sites require or at least recommend this.
     static APP_USER_AGENT: &str = "Waifu-API-rs (https://github.com/gicziunicorn/Waifu-API-rs)";
 
-
     // Wrapper function to measure the time of a test
     async fn measure<F, Fut>(func: F) -> String
     where F: FnOnce() -> Fut, Fut: Future<Output = &'static str> {
@@ -51,7 +50,7 @@ mod tests {
         // Initialize the fetcher
         let fetcher = Fetcher::new(client);
 
-        println!("Starting testing.\n");
+        println!("--- Starting testing ---\n");
 
         // The functions that'll be tested
         let results = measure_all!(
@@ -59,9 +58,11 @@ mod tests {
             test_nekosbest(fetcher.clone()),
         ).await;
 
+        println!();
         results.iter().for_each(|res| {
-            println!("------------\n{}\n", res);
+            println!("------------------------\n{}", res);
         });
+        println!("------------------------\n");
     }
 
 
