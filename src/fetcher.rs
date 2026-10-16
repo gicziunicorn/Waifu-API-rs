@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use bytes::Bytes;
 use wreq::{Client, Response};
 
@@ -5,7 +7,7 @@ use crate::error::{FetchError, FetchResult};
 
 
 /// Stores and handles fetching logic
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Fetcher {
     client: Client,
 }
@@ -45,5 +47,13 @@ impl Fetcher {
         }
 
         Ok(response)
+    }
+}
+
+impl Debug for Fetcher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Fetcher")
+            .field("client", &String::from("wreq::client::Client"))
+            .finish()
     }
 }

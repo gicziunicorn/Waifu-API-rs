@@ -1,17 +1,76 @@
+use std::fmt::Display;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use bytes::Bytes;
 use rand::{rng, seq::IteratorRandom};
 use strum::IntoEnumIterator;
-use strum_macros::{Display, EnumIter};
+use strum_macros::{Display as EnumDisplay, EnumIter};
+use crate::{
+    error::{FetchError::{self, RateLimitError, ResponseError}, FetchResult},
+    fetcher::Fetcher
+};
 
-use crate::{error::{FetchError::{self, RateLimitError, ResponseError}, FetchResult}, fetcher::Fetcher};
+
+/// An enum just for the name of the websites, without holding any value
+///
+/// Can be used for listing or easier matching
+///
+/// Implements EnumIter and EnumDisplay from strum
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, EnumDisplay)]
+pub enum Sites {
+    NekosMoe,
+    NekosBest
+}
+
+impl Sites {
+    /// Create a [`Site`] corresponding to the value
+    pub fn site(&self, fetcher: Fetcher) -> Site {
+        match self {
+            Sites::NekosMoe => Site::NekosMoe( NekosMoe::new(fetcher) ),
+            Sites::NekosBest => Site::NekosBest( NekosBest::new(fetcher) ),
+        }
+    }
+}
+
+
+/// An enum for holding a specific site
+#[derive(Debug, Clone)]
+pub enum Site {
+    NekosMoe(NekosMoe),
+    NekosBest(NekosBest),
+}
+
+// Some functions to make coding easier
+impl Site {
+    pub async fn is_available(&self) -> FetchResult<bool> {
+        match self {
+            Self::NekosMoe(site) => site.is_available().await,
+            Self::NekosBest(site) => site.is_available().await,
+        }
+    }
+
+    pub async fn get_random_image(&mut self) -> FetchResult<Bytes> {
+        match self {
+            Self::NekosMoe(site) => site.get_random_image().await,
+            Self::NekosBest(site) => site.get_random_image().await.map(|i| i.0), // throw away the category chosen
+        }
+    }
+}
+
+impl Into<Sites> for Site {
+    fn into(self) -> Sites {
+        match self {
+            Self::NekosMoe(_) => Sites::NekosMoe,
+            Self::NekosBest(_) => Sites::NekosBest,
+        }
+    }
+}
 
 
 // ----- Nekos.moe -----
 
 /// Nekos.moe serves sfw/nsfw images of catgirls
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NekosMoe {
     pub name: &'static str,
     pub url_for_random: &'static str,
@@ -20,9 +79,9 @@ pub struct NekosMoe {
     fetcher: Fetcher,
 }
 
-impl Into<String> for NekosMoe {
-    fn into(self) -> String {
-        self.name.to_string()
+impl Display for NekosMoe {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
     }
 }
 
@@ -83,7 +142,6 @@ impl NekosMoe {
     }
 }
 
-
 // Deserialize allows the response to be parsed into this struct
 // (unneeded fields can be left out)
 #[derive(Debug, Deserialize)]
@@ -111,7 +169,7 @@ pub struct NekosMoeResponse {
 
 // ----- Nekos.best -----
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Nekosbest is an API that servers sfw images and gifs in categories
 pub struct NekosBest {
     pub name: &'static str,
@@ -123,9 +181,9 @@ pub struct NekosBest {
     pub ratelimit_reset: Option<DateTime<Utc>>,
 }
 
-impl Into<String> for NekosBest {
-    fn into(self) -> String {
-        self.name.to_string()
+impl Display for NekosBest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
     }
 }
 
@@ -221,8 +279,7 @@ impl NekosBest {
     }
 }
 
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 /// The structure of a post for Nekosbest
 pub struct NekosbestPost {
     pub artist_name: String,
@@ -233,18 +290,17 @@ pub struct NekosbestPost {
     pub url: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 /// The structure that the API of the site will return
 pub struct NekosbestResponse {
     pub results: Vec<NekosbestPost>
 }
 
-
 // -- The categories for the site
 
 // implement Display from strum so categories can be accessed as lowercase
 // and EnumIter so it can be converted into an iter and randomly chosen from
-#[derive(Debug, Display, EnumIter, Clone, Copy)]
+#[derive(Debug, Clone, Copy, EnumDisplay, EnumIter)]
 #[strum(serialize_all = "lowercase")]
 /// Nekosbest categories that return images
 pub enum NekosbestImageCategories {
@@ -254,7 +310,7 @@ pub enum NekosbestImageCategories {
     Kitsune
 }
 
-#[derive(Debug, Display, EnumIter, Clone, Copy)]
+#[derive(Debug, Clone, Copy, EnumDisplay, EnumIter)]
 #[strum(serialize_all = "lowercase")]
 /// Nekosbest categories that return gifs
 pub enum NekosbestGifCategories {
@@ -319,7 +375,6 @@ pub enum NekosbestGifCategories {
     Yeet,
 }
 
-
 // ---------------------
 
 
@@ -334,7 +389,8 @@ pub enum NekosbestGifCategories {
 
 // leftover ----------------------------------------
 #[derive(Debug, Clone, Deserialize)]
-pub struct Rule34Post {
+#[allow(dead_code)]
+struct Rule34Post {
     pub preview_url: String,
     pub sample_url: String,
     pub file_url: String,
@@ -358,4 +414,5 @@ pub struct Rule34Post {
     pub has_notes: bool,
     pub comment_count: u32,
 }
-pub type Rule34Response = Vec<Rule34Post>;
+#[allow(dead_code)]
+type Rule34Response = Vec<Rule34Post>;
