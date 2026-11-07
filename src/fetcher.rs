@@ -1,6 +1,5 @@
-use std::fmt::Debug;
-
 use bytes::Bytes;
+use std::fmt::Debug;
 use wreq::{Client, Response};
 
 use crate::error::{FetchError, FetchResult};
@@ -55,5 +54,11 @@ impl Debug for Fetcher {
         f.debug_struct("Fetcher")
             .field("client", &String::from("wreq::client::Client"))
             .finish()
+    }
+}
+
+impl From<Client> for Fetcher {
+    fn from(value: Client) -> Self {
+        Fetcher::new(value)
     }
 }

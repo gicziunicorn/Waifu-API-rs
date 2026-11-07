@@ -30,6 +30,9 @@ pub enum FetchError {
 
     #[error("Rate-limit reached!")]
     RateLimitError,
+
+    #[error("Invalid argument! {0}")]
+    InvalidArgumentError(&'static str),
 }
 
 pub type FetchResult<T> = Result<T, FetchError>;

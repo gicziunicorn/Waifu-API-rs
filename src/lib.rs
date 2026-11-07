@@ -1,7 +1,7 @@
 #![warn(unused)]
 pub mod error;
 pub mod fetcher;
-pub mod site;
+pub mod sites;
 
 
 #[cfg(test)]
@@ -10,7 +10,11 @@ mod tests {
     use std::{net::Ipv4Addr, time::Instant};
     use image::load_from_memory;
     use wreq::Client;
-    use crate::{fetcher::Fetcher, site::{NekosBest, NekosMoe}};
+
+    use crate::sites::Post;
+    use crate::sites::nekosbest::NekosBest;
+    use crate::sites::nekosmoe::NekosMoe;
+    use crate::{fetcher::Fetcher};
 
     // Create a user agent that can be sent to the API.
     // Most sites require or at least recommend this.
@@ -18,7 +22,7 @@ mod tests {
 
     // Wrapper function to measure the time of a test
     async fn measure<F, Fut>(func: F) -> String
-    where F: FnOnce() -> Fut, Fut: Future<Output = &'static str> {
+    where F: FnOnce() -> Fut, Fut: Future<Output = String> {
         let start = Instant::now();
 
         let msg = func().await;
@@ -66,18 +70,29 @@ mod tests {
     }
 
 
-    async fn test_nekosmoe(fetcher: Fetcher) -> &'static str {
+    async fn test_nekosmoe(fetcher: Fetcher) -> String {
         // Create an instance of the site we want to use
-        let nekosmoe = NekosMoe::new(fetcher);
+        let mut nekosmoe = NekosMoe::new(fetcher);
+
+        // Get a post
+        let mut posts = nekosmoe.get_random_posts(1)
+            .await.expect("Failed to fetch post");
+        let post = posts.images.remove(0);
+        let gpost: Post = post.into();
 
         // Get an image from the site
         let _image = nekosmoe.get_random_image().await.expect("Failed to get random");
 
-        "Nekos.moe test done."
+        format!("Nekos.moe test done.\n{:#?}", gpost)
     }
 
-    async fn test_nekosbest(fetcher: Fetcher) -> &'static str {
+    async fn test_nekosbest(fetcher: Fetcher) -> String {
         let mut site = NekosBest::new(fetcher);
+
+        let mut posts = site.get_random_posts_with_category(crate::sites::nekosbest::NekosbestImageCategories::Kitsune, 1)
+            .await.expect("Failed to fetch post");
+        let post = posts.results.remove(0);
+        let gpost: Post = post.into();
 
         // Get an image from the site
         let (image, _chosen_category) = site.get_random_image().await.expect("Failed to get random");
@@ -88,6 +103,6 @@ mod tests {
         load_from_memory(&image).expect("Failed to convert image")
             .save_with_format("image.jpg", image::ImageFormat::Jpeg).expect("Failed to save image");
 
-        "Nekosbest test done."
+        format!("Nekosbest test done.\n{:#?}", gpost)
     }
 }
