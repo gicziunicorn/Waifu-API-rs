@@ -6,3 +6,4 @@ A library that can request posts and images from different anime girl themed web
 
 ## Supported websites:
  - [Nekos.moe](https://nekos.moe)
+ - [Nekos.best](https://nekos.best)
