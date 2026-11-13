@@ -27,7 +27,7 @@ impl Fetcher {
             return Err(FetchError::HTTPError {
                 code: response.status().as_u16(),
                 message: "Site returned an error status.",
-                body: response.text().await.ok(),
+                body: response.text().await.ok().map(|s| s.into()),
             });
         }
 
@@ -41,7 +41,7 @@ impl Fetcher {
             return Err(FetchError::HTTPError {
                 code: response.status().as_u16(),
                 message: "Site returned an error status.",
-                body: response.text().await.ok(),
+                body: response.text().await.ok().map(|s| s.into()),
             });
         }
 

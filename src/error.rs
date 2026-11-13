@@ -2,6 +2,18 @@ use thiserror::Error;
 use tokio::{sync::oneshot::error::RecvError};
 
 
+// Wrapper error for source fields
+#[derive(Debug, Error)]
+#[error("{0}")]
+pub struct ResponseBody(String);
+
+impl Into<ResponseBody> for String {
+    fn into(self) -> ResponseBody {
+        ResponseBody(self)
+    }
+}
+
+
 // Custom errors (using thiserror)
 #[derive(Error, Debug)]
 /// An error that can happen during fetching
@@ -13,7 +25,8 @@ pub enum FetchError {
     HTTPError {
         code: u16,
         message: &'static str,
-        body: Option<String>
+        #[source]
+        body: Option<ResponseBody>
     },
 
     #[error("Invalid response: {0}")]
