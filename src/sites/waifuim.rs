@@ -16,8 +16,8 @@ use crate::sites::{Post, Posts};
 use crate::{error::FetchResult, fetcher::Fetcher};
 
 
-static RANDOM_URL: &'static str = "https://waifu-api-031n.onrender.com/images";
-static TEST_URL: &'static str = "https://waifu-api-031n.onrender.com/";
+static RANDOM_URL: &'static str = "https://api.marek-server.com/images";
+static TEST_URL: &'static str = "https://api.marek-server.com/";
 
 
 /// Waifu.im is an API that servers sfw images and gifs in categories
