@@ -20,7 +20,7 @@ use crate::{
 /// Can be used for listing or easier matching
 ///
 /// Implements EnumIter and EnumDisplay from strum
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, EnumDisplay, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, Hash, EnumDisplay, Serialize, Deserialize)]
 pub enum Sites {
     NekosMoe,
     NekosBest
@@ -47,6 +47,10 @@ pub enum Site {
 
 // Some general functions to make coding easier
 impl Site {
+    pub fn into_sites(self) -> Sites {
+        self.into()
+    }
+
     pub fn get_ratelimit_remaining(&self) -> u16 {
         match self {
             Self::NekosMoe(site) => site.ratelimit_remaining,
