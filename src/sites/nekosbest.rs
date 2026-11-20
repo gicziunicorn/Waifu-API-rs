@@ -1,12 +1,14 @@
+use std::time::Instant;
+
 // ----- Nekos.best -----
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
 use rand::{rng, seq::IteratorRandom};
 use serde::Deserialize;
 use strum::IntoEnumIterator;
 use strum_macros::{Display as EnumDisplay, EnumIter};
 
 use crate::error::FetchError::{self, RateLimitError, ResponseError};
+use crate::helper::iso_8601_to_instant;
 use crate::sites::{Post, Posts};
 use crate::{error::FetchResult, fetcher::Fetcher};
 
@@ -22,7 +24,7 @@ pub struct NekosBest {
     fetcher: Fetcher,
     pub ratelimit_remaining: u16,
     /// In UTC
-    pub ratelimit_reset: Option<DateTime<Utc>>,
+    pub ratelimit_reset: Option<Instant>,
 }
 
 
@@ -66,7 +68,10 @@ impl NekosBest {
 
     /// Get a number of random posts from a specific category (max 20)
     pub async fn get_random_posts_with_category(&mut self, category: NekosbestImageCategories, count: u16) -> FetchResult<NekosbestResponse> {
-        if self.ratelimit_remaining == 0 { return Err(RateLimitError); }
+        if let Some(ratelimit_reset) = self.ratelimit_reset &&
+        self.ratelimit_remaining == 0 && Instant::now() < ratelimit_reset {
+            return Err(RateLimitError);
+        }
         if count > 20 { return Err(FetchError::InvalidArgumentError("Count is more than allowed.")); }
 
         let fetcher = &self.fetcher;
@@ -81,12 +86,13 @@ impl NekosBest {
             .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?
             .parse::<u16>()
             .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?;
-        let rl_rst = headers.get("x-rate-limit-reset")
-            .ok_or(ResponseError("'x-rate-limit-reset' field not found".to_string()))?
-            .to_str()
-            .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?
-            .parse::<DateTime<Utc>>()
-            .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?;
+        let rl_rst = iso_8601_to_instant(
+            headers.get("x-rate-limit-reset")
+                .ok_or(ResponseError("'x-rate-limit-reset' field not found".to_string()))?
+                .to_str()
+                .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?
+        )
+        .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?;
 
         self.ratelimit_remaining = rl_rem;
         self.ratelimit_reset = Some(rl_rst);

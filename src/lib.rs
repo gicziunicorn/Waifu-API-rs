@@ -2,6 +2,7 @@
 pub mod error;
 pub mod fetcher;
 pub mod sites;
+pub mod helper;
 
 
 #[cfg(test)]
@@ -100,7 +101,7 @@ use crate::{fetcher::Fetcher};
         // Get an image from the site
         let (image, _chosen_category) = site.get_random_image().await.expect("Failed to get random");
 
-        println!("Remaining: {}, reset: {}", site.ratelimit_remaining, site.ratelimit_reset.unwrap());
+        println!("Remaining: {}, reset: {:?}", site.ratelimit_remaining, site.ratelimit_reset.unwrap());
 
         // Save the image
         load_from_memory(&image).expect("Failed to convert image")

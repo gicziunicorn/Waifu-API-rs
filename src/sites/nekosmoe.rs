@@ -1,9 +1,10 @@
+use std::time::Instant;
+
 // ----- Nekos.moe -----
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
-use crate::{error::{FetchError::{self, RateLimitError, ResponseError}, FetchResult}, fetcher::Fetcher, sites::{Post, Posts}};
+use crate::{error::{FetchError::{self, RateLimitError, ResponseError}, FetchResult}, fetcher::Fetcher, helper::unix_timestamp_to_instant, sites::{Post, Posts}};
 
 
 static RANDOM_URL: &'static str = "https://nekos.moe/api/v1/random/image";
@@ -19,7 +20,7 @@ pub struct NekosMoe {
     pub ratelimit_limit: u16,
     pub ratelimit_remaining: u16,
     /// In UTC
-    pub ratelimit_reset: Option<DateTime<Utc>>,
+    pub ratelimit_reset: Option<Instant>,
 }
 
 
@@ -54,7 +55,7 @@ impl NekosMoe {
     /// Get a number of random post from the site (max 100)
     pub async fn get_random_posts(&mut self, count: u16) -> FetchResult<NekosMoeResponse> {
         if let Some(ratelimit_reset) = self.ratelimit_reset &&
-        self.ratelimit_remaining == 0 && Utc::now() < ratelimit_reset {
+        self.ratelimit_remaining == 0 && Instant::now() < ratelimit_reset {
             return Err(RateLimitError);
         }
         if count > 100 { return Err(FetchError::InvalidArgumentError("Count is more than allowed.")); }
@@ -72,15 +73,14 @@ impl NekosMoe {
             .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?
             .parse::<u16>()
             .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?;
-        let rl_rst = DateTime::<Utc>::from_timestamp_millis(
+        let rl_rst = unix_timestamp_to_instant(
             headers.get("x-ratelimit-reset")
                 .ok_or(ResponseError("'x-ratelimit-reset' field not found".to_string()))?
                 .to_str()
                 .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?
-                .parse::<i64>()
+                .parse::<u64>()
                 .map_err(|e| ResponseError(format!("Failed to convert header value: {e}")))?
-        )
-        .ok_or(ResponseError(format!("Failed to convert header value: Timestamp is out of range.")))?;
+        );
 
         self.ratelimit_remaining = rl_rem;
         self.ratelimit_reset = Some(rl_rst);

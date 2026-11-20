@@ -2,7 +2,7 @@ pub mod nekosmoe;
 pub mod nekosbest;
 pub mod waifuim;
 
-use chrono::{DateTime};
+use std::time::Instant;
 use serde::{Deserialize, Serialize};
 use bytes::Bytes;
 use strum_macros::{Display as EnumDisplay, EnumIter};
@@ -61,11 +61,11 @@ impl Site {
         }
     }
 
-    pub fn get_ratelimit_reset(&self) -> Option<DateTime<Utc>> {
+    pub fn get_ratelimit_reset(&self) -> Option<Instant> {
         match self {
             Self::NekosMoe(site) => site.ratelimit_reset,
             Self::NekosBest(site) => site.ratelimit_reset,
-            Self::WaifuIm(site) => Some(Utc::now()),
+            Self::WaifuIm(site) => site.ratelimit_reset,
         }
     }
 
