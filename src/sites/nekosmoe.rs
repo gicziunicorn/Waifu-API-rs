@@ -53,7 +53,8 @@ impl NekosMoe {
 
     /// Get a number of random post from the site (max 100)
     pub async fn get_random_posts(&mut self, count: u16) -> FetchResult<NekosMoeResponse> {
-        if let Some(ratelimit_reset) = self.ratelimit_reset && self.ratelimit_remaining == 0 && Utc::now() < ratelimit_reset {
+        if let Some(ratelimit_reset) = self.ratelimit_reset &&
+        self.ratelimit_remaining == 0 && Utc::now() < ratelimit_reset {
             return Err(RateLimitError);
         }
         if count > 100 { return Err(FetchError::InvalidArgumentError("Count is more than allowed.")); }

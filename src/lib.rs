@@ -14,7 +14,8 @@ mod tests {
     use crate::sites::Post;
     use crate::sites::nekosbest::NekosBest;
     use crate::sites::nekosmoe::NekosMoe;
-    use crate::{fetcher::Fetcher};
+    use crate::sites::waifuim::WaifuIm;
+use crate::{fetcher::Fetcher};
 
     // Create a user agent that can be sent to the API.
     // Most sites require or at least recommend this.
@@ -60,8 +61,10 @@ mod tests {
         let results = measure_all!(
             test_nekosmoe(fetcher.clone()),
             test_nekosbest(fetcher.clone()),
+            test_waifuim(fetcher.clone()),
         ).await;
 
+        // Print the results
         println!();
         results.iter().for_each(|res| {
             println!("------------------------\n{}", res);
@@ -104,5 +107,21 @@ mod tests {
             .save_with_format("image.jpg", image::ImageFormat::Jpeg).expect("Failed to save image");
 
         format!("Nekosbest test done.\n{:#?}", gpost)
+    }
+
+    async fn test_waifuim(fetcher: Fetcher) -> String {
+        // Create an instance of the site we want to use
+        let mut site = WaifuIm::new(fetcher);
+
+        // Get a post
+        let mut posts = site.get_random_posts(1)
+            .await.expect("Failed to fetch post");
+        let post = posts.items.remove(0);
+        let gpost: Post = post.into();
+
+        // Get an image from the site
+        let _image = site.get_random_image().await.expect("Failed to get random");
+
+        format!("Waifu.im test done.\n{:#?}", gpost)
     }
 }

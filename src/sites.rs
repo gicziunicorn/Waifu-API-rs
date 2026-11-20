@@ -1,16 +1,15 @@
 pub mod nekosmoe;
 pub mod nekosbest;
+pub mod waifuim;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime};
 use serde::{Deserialize, Serialize};
 use bytes::Bytes;
 use strum_macros::{Display as EnumDisplay, EnumIter};
 
 use crate::{
-    error::FetchResult, fetcher::Fetcher,
-    sites::{
-        nekosmoe::NekosMoe,
-        nekosbest::NekosBest,
+    error::FetchResult, fetcher::Fetcher, sites::{
+        nekosbest::NekosBest, nekosmoe::NekosMoe, waifuim::WaifuIm,
     }
 };
 
@@ -23,7 +22,8 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumIter, Hash, EnumDisplay, Serialize, Deserialize)]
 pub enum Sites {
     NekosMoe,
-    NekosBest
+    NekosBest,
+    WaifuIm,
 }
 
 impl Sites {
@@ -32,6 +32,7 @@ impl Sites {
         match self {
             Sites::NekosMoe => Site::NekosMoe( NekosMoe::new(fetcher) ),
             Sites::NekosBest => Site::NekosBest( NekosBest::new(fetcher) ),
+            Sites::WaifuIm => Site::WaifuIm( WaifuIm::new(fetcher) )
         }
     }
 }
@@ -42,6 +43,7 @@ impl Sites {
 pub enum Site {
     NekosMoe(NekosMoe),
     NekosBest(NekosBest),
+    WaifuIm(WaifuIm)
 }
 
 
@@ -55,6 +57,7 @@ impl Site {
         match self {
             Self::NekosMoe(site) => site.ratelimit_remaining,
             Self::NekosBest(site) => site.ratelimit_remaining,
+            Self::WaifuIm(site) => site.ratelimit_remaining,
         }
     }
 
@@ -62,6 +65,7 @@ impl Site {
         match self {
             Self::NekosMoe(site) => site.ratelimit_reset,
             Self::NekosBest(site) => site.ratelimit_reset,
+            Self::WaifuIm(site) => Some(Utc::now()),
         }
     }
 
@@ -69,6 +73,7 @@ impl Site {
         match self {
             Self::NekosMoe(site) => site.is_available().await,
             Self::NekosBest(site) => site.is_available().await,
+            Self::WaifuIm(site) => site.is_available().await,
         }
     }
 
@@ -76,6 +81,7 @@ impl Site {
         match self {
             Self::NekosMoe(site) => site.get_random_posts(count).await.map(Into::into),
             Self::NekosBest(site) => site.get_random_posts(count).await.map(|(posts, _)| posts.into()),
+            Self::WaifuIm(site) => site.get_random_posts(count).await.map(Into::into),
         }
     }
 
@@ -83,6 +89,7 @@ impl Site {
         match self {
             Self::NekosMoe(site) => site.get_random_image().await,
             Self::NekosBest(site) => site.get_random_image().await.map(|i| i.0), // throw away the category chosen
+            Self::WaifuIm(site) => site.get_random_image().await,
         }
     }
 }
@@ -92,6 +99,7 @@ impl Into<Sites> for Site {
         match self {
             Self::NekosMoe(_) => Sites::NekosMoe,
             Self::NekosBest(_) => Sites::NekosBest,
+            Self::WaifuIm(_) => Sites::WaifuIm,
         }
     }
 }

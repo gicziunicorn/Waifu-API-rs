@@ -127,6 +127,8 @@ impl NekosBest {
 
     /// Get a random image from a random category
     ///
+    /// One category will be selected and all posts will be from that category
+    ///
     /// Also returns the chosen category
     pub async fn get_random_image(&mut self) -> FetchResult<(Bytes, NekosbestImageCategories)> {
         let (posts, rand_cat) = self.get_random_posts(1).await?;
