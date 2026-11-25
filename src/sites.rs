@@ -27,12 +27,20 @@ pub enum Sites {
 }
 
 impl Sites {
-    /// Create a [`Site`] corresponding to the value
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::NekosMoe => "Nekos.moe",
+            Self::NekosBest => "Nekos.best",
+            Self::WaifuIm => "Waifu.im",
+        }
+    }
+
+    /// Create a [`Site`] with a new instance of the site, corresponding to the value of [`Sites`]
     pub fn site(&self, fetcher: Fetcher) -> Site {
         match self {
-            Sites::NekosMoe => Site::NekosMoe( NekosMoe::new(fetcher) ),
+            Sites::NekosMoe  => Site::NekosMoe( NekosMoe::new(fetcher) ),
             Sites::NekosBest => Site::NekosBest( NekosBest::new(fetcher) ),
-            Sites::WaifuIm => Site::WaifuIm( WaifuIm::new(fetcher) )
+            Sites::WaifuIm   => Site::WaifuIm( WaifuIm::new(fetcher) ),
         }
     }
 }

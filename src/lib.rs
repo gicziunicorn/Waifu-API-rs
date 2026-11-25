@@ -16,7 +16,7 @@ mod tests {
     use crate::sites::nekosbest::NekosBest;
     use crate::sites::nekosmoe::NekosMoe;
     use crate::sites::waifuim::WaifuIm;
-use crate::{fetcher::Fetcher};
+    use crate::{fetcher::Fetcher};
 
     // Create a user agent that can be sent to the API.
     // Most sites require or at least recommend this.
@@ -93,7 +93,7 @@ use crate::{fetcher::Fetcher};
     async fn test_nekosbest(fetcher: Fetcher) -> String {
         let mut site = NekosBest::new(fetcher);
 
-        let mut posts = site.get_random_posts_with_category(crate::sites::nekosbest::NekosbestImageCategories::Kitsune, 1)
+        let mut posts = site.get_random_posts_with_category(crate::sites::nekosbest::NekosbestCategories::Kitsune, 1)
             .await.expect("Failed to fetch post");
         let post = posts.results.remove(0);
         let gpost: Post = post.into();

@@ -7,12 +7,12 @@ use std::time::{Duration, Instant};
 use bytes::Bytes;
 use chrono::{DateTime, Local, Utc};
 use rand::{rng, seq::IteratorRandom};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::{Display as EnumDisplay, EnumIter};
 
 use crate::error::FetchError::{self, RateLimitError, ResponseError};
-use crate::sites::{Post, Posts};
+use crate::sites::{Post, Posts, Site};
 use crate::{error::FetchResult, fetcher::Fetcher};
 
 
@@ -48,6 +48,9 @@ impl WaifuIm {
             ratelimit_reset: None,
         }
     }
+
+    /// Get the corresponding value of [`Site`], consuming self
+    pub fn into_site(self) -> Site { Site::WaifuIm(self) }
 
     /// Checks if the site's API is available
     pub async fn is_available(&self) -> FetchResult<bool> {
@@ -111,7 +114,7 @@ impl WaifuIm {
 
 
 //--- Response formats ---
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaifuImTag {
     pub id: u64,
     pub name: String,
@@ -119,7 +122,7 @@ pub struct WaifuImTag {
     pub description: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaifuImArtist {
     pub id: u64,
     pub name: String,
@@ -130,7 +133,7 @@ pub struct WaifuImArtist {
     pub deviantart: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// The structure of a post for Nekosbest
 pub struct WaifuImPost {
     pub id: u64,
@@ -147,7 +150,7 @@ pub struct WaifuImPost {
     pub tags: Vec<WaifuImTag>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// The structure that the API of the site will return
 pub struct WaifuImResponse {
     pub items: Vec<WaifuImPost>,
@@ -165,23 +168,23 @@ pub struct WaifuImResponse {
 
 
 // Implement into generic post
-impl Into<Post> for WaifuImPost {
-    fn into(self) -> Post {
+impl From<WaifuImPost> for Post {
+    fn from(post: WaifuImPost) -> Post {
         Post {
-            id: self.id.to_string(),
-            image_url: self.url,
-            image_source: Some(self.source),
-            artist_name: if self.artists.len() == 0 {
+            id: post.id.to_string(),
+            image_url: post.url,
+            image_source: Some(post.source),
+            artist_name: if post.artists.len() == 0 {
                 None
             } else {
-                Some(self.artists[0].name.clone())
+                Some(post.artists[0].name.clone())
             },
         }
     }
 }
 
-impl Into<Posts> for WaifuImResponse {
-    fn into(self) -> Posts {
-        self.items.into_iter().map(Into::into).collect()
+impl From<WaifuImResponse> for Posts {
+    fn from(response: WaifuImResponse) -> Posts {
+        response.items.into_iter().map(Into::into).collect()
     }
 }

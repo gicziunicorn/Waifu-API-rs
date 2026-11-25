@@ -2,9 +2,9 @@ use std::time::Instant;
 
 // ----- Nekos.moe -----
 use bytes::Bytes;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use crate::{error::{FetchError::{self, RateLimitError, ResponseError}, FetchResult}, fetcher::Fetcher, helper::unix_timestamp_to_instant, sites::{Post, Posts}};
+use crate::{error::{FetchError::{self, RateLimitError, ResponseError}, FetchResult}, fetcher::Fetcher, helper::unix_timestamp_to_instant, sites::{Post, Posts, Site}};
 
 
 static RANDOM_URL: &'static str = "https://nekos.moe/api/v1/random/image";
@@ -42,6 +42,9 @@ impl NekosMoe {
             ratelimit_reset: None,
         }
     }
+
+    /// Get the corresponding value of [`Site`], consuming self
+    pub fn into_site(self) -> Site { Site::NekosMoe(self) }
 
     /// Checks if the site's API is available
     pub async fn is_available(&self) -> FetchResult<bool> {
@@ -117,7 +120,7 @@ impl NekosMoe {
 
 // Deserialize allows the response to be parsed into this struct
 // (unneeded fields can be left out)
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 /// The structure of a post for the site
 pub struct NekosMoePost {
     pub id: String,
@@ -131,28 +134,28 @@ pub struct NekosMoePost {
 }
 
 /// The structure that the API of the site will return
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NekosMoeResponse {
     pub images: Vec<NekosMoePost>
 }
 
 
 // Implement into generic post
-impl Into<Post> for NekosMoePost {
-    fn into(self) -> Post {
-        let image_url = format!("{}/{}", IMAGE_URL, self.id);
+impl From<NekosMoePost> for Post {
+    fn from(nekosmoepost: NekosMoePost) -> Self {
+        let image_url = format!("{}/{}", IMAGE_URL, nekosmoepost.id);
 
         Post {
-            id: self.id,
+            id: nekosmoepost.id,
             image_url: image_url,
             image_source: None,
-            artist_name: self.artist,
+            artist_name: nekosmoepost.artist,
         }
     }
 }
 
-impl Into<Posts> for NekosMoeResponse {
-    fn into(self) -> Posts {
-        self.images.into_iter().map(Into::into).collect()
+impl From<NekosMoeResponse> for Posts {
+    fn from(response: NekosMoeResponse) -> Self {
+        response.images.into_iter().map(Into::into).collect()
     }
 }
